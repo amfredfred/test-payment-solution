@@ -8,7 +8,7 @@ import { Head, Link, useForm } from '@inertiajs/vue3';
 
 
 defineProps<{
-    currencies: { name: string, code: string }[]
+    currencies: { name: string, slug: string }[]
     error: string,
     message: string
 }>();
@@ -68,13 +68,11 @@ const onSelect = (selected: any) => {
                 <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                     <div class="p-6 text-gray-900">Transfer To User</div>
                     <div class="blance-container col-3">
-                        d
+                        ==== ==== ====
                     </div>
                 </div>
 
-                <div class="form-container ">
-
-
+                <div class="form-container "> 
                     <InputError class="mt-2" :message="$page.props.errors.default" />
                     <span v-if="$page.props.message" style="padding:20px; color: green;">
                         {{ $page.props.message }}
@@ -88,7 +86,7 @@ const onSelect = (selected: any) => {
                                     <InputLabel for="slug" value="Select Wallet Denomination" />
                                     <select @change="onSelect" name="slug" id="slug" v-model="form.slug">
                                         <option value="">Select</option>
-                                        <option v-for="currency in currencies" :value="currency.code" :key="currency.code">
+                                        <option v-for="currency in currencies" :value="currency.slug" :key="currency.slug">
                                             {{ currency.name }}
                                         </option>
                                     </select>
