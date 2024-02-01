@@ -65,7 +65,7 @@ class CustomerConrtoller extends Controller {
             'pay_link' => $payLink,
             'user' => $user,
         ];
-        return $request->wantsJson() ? $this->respondWithSuccess($data): Inertia\Inertia::render('Dashboard', $data);
+        return $request->wantsJson() ? $this->respondWithSuccess(data:$data): Inertia\Inertia::render('Dashboard', $data);
     }
 
     public function displayTransferPage(Request $request)  {
@@ -114,13 +114,9 @@ class CustomerConrtoller extends Controller {
                 'remark' => "You sent $validated[amount] to $recipient->name",
                 'reference' => support\Str::uuid(),
             ];
-
-            $recipientWallet = $recipient->hasWallet($validated['wallet_slug']);
-
-            if (!$recipientWallet) {
-                $recipient = $recipient->createWallet($this->currencies[$validated['wallet_slug']]);
-            }
-
+            $recipient = !$recipient->hasWallet($validated['wallet_slug'])
+            ? $recipient->createWallet($this->currencies[$validated['wallet_slug']]) 
+            : $recipient->getWallet($validated['wallet_slug']);
             $walletToCharge->transfer($recipient, $validated['amount'], $meta);
         } catch (\Throwable $th) {
             Log::error("CustomerController->makeFundTransfer: $th->getMessage()");

@@ -44,15 +44,12 @@ class RegisteredUserController extends Controller {
         ] );
 
         if ( $validated->fails() ) {
-            if ( $request->wantsJson() ) {
-                return $this->respondWithError(
-                    message:$validated->errors()->first(),
-                    devMessage:$validated->errors(),
-                    statusCode:406
-                );
-            } else {
-                return back()->withErrors( $validated->errors() )->withInput();
-            }
+            return   $request->wantsJson()
+            ? throw new HttpResponseException( response()->json( [
+                'error' => $validated->errors()->first(),
+                'errors' => $validated->errors(),
+            ], 422 ) )
+            :back()->withErrors( $validated->errors() )->withInput();
         }
 
         $user = User::create( [
@@ -62,12 +59,9 @@ class RegisteredUserController extends Controller {
         ] );
 
         event( new Registered( $user ) );
-
-        if ( $request->wantsJson() ) {
-            return $this->respondWithUserProfileAndToken( $user );
-        }
-
         Auth::login( $user );
-        return redirect( RouteServiceProvider::HOME );
+        return $request->wantsJson()?
+        $this->respondWithUserProfileAndToken( $user )
+        :redirect( RouteServiceProvider::HOME );
     }
 }
