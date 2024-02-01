@@ -84,16 +84,23 @@ class CustomerConrtoller extends Controller {
             'recipient_id' => $recipientId,
         ];
 
-        return $request->wantsJson()  ? $this->respondWithSuccess($data) : Inertia\Inertia::render('Payment/TransferHome', $data);
+        return $request->wantsJson() ? $this->respondWithSuccess(data:$data) : Inertia\Inertia::render('Payment/TransferHome', $data);
     }
 
     public function makeFundTransfer(Request $request) {
         $user = $request->user();
 
+
         $validated = $request->validate([
-            'amount' => ['required', 'min:1', "max:$user->balance", 'numeric'],
             'recipient_id' => ['required'],
             'wallet_slug' => ['required', 'in:' . implode(',', array_keys($this->currencies))],
+        ]);
+
+
+        $walletToCharge = $user->getWallet($request->get('wallet_slug'));
+            
+        $validated += $request->validate([
+            'amount' => ['required', 'min:1', "max:$walletToCharge->balance", 'numeric'],
         ]);
 
         $recipient = User::findOrFail($validated['recipient_id']);
@@ -114,7 +121,7 @@ class CustomerConrtoller extends Controller {
                 $recipient = $recipient->createWallet($this->currencies[$validated['wallet_slug']]);
             }
 
-            $user->transfer($recipient, $validated['amount'], $meta);
+            $walletToCharge->transfer($recipient, $validated['amount'], $meta);
         } catch (\Throwable $th) {
             Log::error("CustomerController->makeFundTransfer: $th->getMessage()");
             return $request->wantsJson()

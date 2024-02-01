@@ -35,6 +35,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('create-wallet', 'displayCreateWalletPage')->middleware(['verified'])->name('show-create-wallet-page');
         Route::post('store-user-wallet', 'createNewWallet')->name('post-store-user-wallet');
         Route::get('transfer', 'displayTransferPage')->name('show-transfer-page');
-        Route::post('send-transafer', 'makeFundTransfer')->name('post-transfer-funds');
+        Route::post('send-funds', 'makeFundTransfer')->name('post-transfer-funds');
     });
 });
