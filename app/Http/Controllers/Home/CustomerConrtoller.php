@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Home;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Traits\API\JsonResponseTrait;
 use Bavix\Wallet\Models\Transaction;
 use Illuminate\Http\Request;
 use Inertia;
@@ -12,6 +13,8 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Log;
 
 class CustomerConrtoller extends Controller {
+
+    use JsonResponseTrait;
 
     public $currencies = [
         'NGN' => [ 'slug' => 'NGN', 'name' => 'Nigerian Naira' ],
@@ -53,68 +56,75 @@ class CustomerConrtoller extends Controller {
         return $wallets;
     }
 
-    public function displayDashboard( Request $request ) {
-        $user = User::find( $request->user()->id );
-        $pay_link = route('post-transfer-funds', ['recipient_id' => $user->id]) ;
-        return Inertia\Inertia::render( 'Dashboard', [
-            'user' => $user,
+
+    public function displayDashboard(Request $request) {
+        $user = User::find($request->user()->id);
+        $payLink = route('post-transfer-funds', ['recipient_id' => $user->id]);
+        $data = [
             'wallets' => $this->wallets(),
-            'pay_link' => $pay_link
-        ] );
+            'pay_link' => $payLink,
+            'user' => $user,
+        ];
+        return $request->wantsJson() ? $this->respondWithSuccess($data): Inertia\Inertia::render('Dashboard', $data);
     }
 
-    public function displayTransferPage( Request $request ) {
+    public function displayTransferPage(Request $request)  {
+        $recipientId = $request->query('recipient_id');
+        $users = User::where('id', '!=', $request->user()->id)->get();
 
-        $recipient_id = $request->query('recipient_id');
-        $users = User::where( 'id', '!=', $request->user()->id )->get();
-        
-        if(! $users->find($recipient_id) && $recipient_id){
-            abort(404);
-            dd('SORRY USER WITH ID: '. $recipient_id). " NOT FOUNT";
+        if (!$users->find($recipientId) && $recipientId) {
+            return $request->wantsJson()
+                ? $this->respondWithError("SORRY USER WITH ID: $recipientId NOT FOUND")
+                : abort(404);
         }
 
-        return Inertia\Inertia::render( 'Payment/TransferHome', [
-            'users' =>  $users->pluck( 'name', 'id' ),
+        $data = [
+            'users' => $users->pluck('name', 'id'),
             'wallets' => collect($this->wallets())->where('balance', '>', 0)->all(),
-            'recipient_id' => $recipient_id
-        ] );
+            'recipient_id' => $recipientId,
+        ];
+
+        return $request->wantsJson()  ? $this->respondWithSuccess($data) : Inertia\Inertia::render('Payment/TransferHome', $data);
     }
 
-    public function makeFundTransfer( Request $request ) {
+    public function makeFundTransfer(Request $request) {
         $user = $request->user();
 
-        $validated = $request->validate( [
-            'amount' => [ 'required', 'min:1',  "max:$user->balance", 'numeric' ],
-            'recipient_id' => [ 'required' ],
-            'wallet_slug' => [ 'required', 'in:'.implode( ',', array_keys( $this->currencies ) ) ]
-        ] );
+        $validated = $request->validate([
+            'amount' => ['required', 'min:1', "max:$user->balance", 'numeric'],
+            'recipient_id' => ['required'],
+            'wallet_slug' => ['required', 'in:' . implode(',', array_keys($this->currencies))],
+        ]);
 
-        $recipient = User::findOrFail( $validated[ 'recipient_id' ] );
+        $recipient = User::findOrFail($validated['recipient_id']);
 
-        if ( !$recipient ) {
-            return back()->with( session()->flash( 'error', 'User not found' ) );
+        if (!$recipient) {
+            return back()->with(session()->flash('error', 'User not found'));
         }
 
         try {
             $meta = [
-                'remark' => 'You sent '. $validated[ 'amount' ] .' to '.User::where( 'id', $validated[ 'recipient_id' ] )->first()->name,
-                'reference' => Support\Str::uuid()
+                'remark' => "You sent $validated[amount] to $recipient->name",
+                'reference' => support\Str::uuid(),
             ];
 
             $recipientWallet = $recipient->hasWallet($validated['wallet_slug']);
 
-            if(!$recipientWallet){
+            if (!$recipientWallet) {
                 $recipient = $recipient->createWallet($this->currencies[$validated['wallet_slug']]);
             }
 
-            $user->transfer( $recipient,  $validated[ 'amount' ],    $meta );
-
-        } catch ( \Throwable $th ) {
-            Log::error('CustomerConrtoller->makeFundTransfer: '.$th->getMessage());
-            return back()->withErrors([ 'default' =>'Something happened: '. $th->getMessage()] )  ;
+            $user->transfer($recipient, $validated['amount'], $meta);
+        } catch (\Throwable $th) {
+            Log::error("CustomerController->makeFundTransfer: $th->getMessage()");
+            return $request->wantsJson()
+                ? $this->respondWithError("Something happened: $th->getMessage()")
+                : back()->withErrors(['default' => "Something happened: $th->getMessage()"]);
         }
 
-        return redirect(route('dashboard'))->with(['message' => 'Transation Successful.' ]);
+        return $request->wantsJson() 
+        ? $this->respondWithSuccess('Transaction Successful.') 
+        : redirect(route('dashboard'))->with(['message' => 'Transaction Successful.']);
     }
 
     public function displayCreateWalletPage( Request $request ) {
@@ -124,9 +134,12 @@ class CustomerConrtoller extends Controller {
             return !in_array($currency['slug'], array_values($userWallets->toArray()));
         });
 
-        return Inertia\Inertia::render( 'Payment/CreateWalletHome', [
-            'currencies' =>$currencies,
-        ] );
+        $data = [];
+        $data['currencies'] = $currencies;
+
+        return $request->wantsJson()
+           ? $this->respondWithSuccess(  data:$data  )
+           : Inertia\Inertia::render( 'Payment/CreateWalletHome', $data  );
     }
 
     public function createNewWallet( Request $request ) {
@@ -143,16 +156,23 @@ class CustomerConrtoller extends Controller {
             $userHasWallet = $user->hasWallet( $selectedCurrency[ 'slug' ] );
 
             if ( $userHasWallet ) {
-                return redirect()->back()->withErrors( [ 'default' =>'You Already have this wallet' ] )->withInput();
-
+               return   $request->wantsJson()  
+                ? $this->respondWithError('You Already have this wallet' )
+                : redirect()->back()->withErrors( [ 'default' =>'You Already have this wallet' ] )->withInput();
             }
             $wallet = $user->createWallet( $selectedCurrency );
             $wallet->deposit( abs( $validated[ 'initial_balance' ] ), [ 'remark' => 'initial balance', 'reference' => Support\Str::uuid() ] );
         } catch ( \Throwable $th ) {
             Log::error( 'CustomerConrtoller->createWallet: '.$th->getMessage() );
-            return  redirect()->back()->withErrors( [ 'default' =>'something went wrong: '.$th->getMessage() ] )->withInput();
+            return $request->wantsJson() 
+              ? $this->respondWithError('something went wrong: '.$th->getMessage())
+              : redirect()->back()->withErrors( [ 'default' =>'something went wrong: '.$th->getMessage() ] )->withInput();
         }
-        return redirect( route( 'dashboard' ) )->with( [ 'message' =>'Wallet created successfuly' ] );
+
+
+        return $request->wantsJson() 
+          ? $this->respondWithSuccess('Wallet created successfuly')
+          :  redirect( route( 'dashboard' ) )->with( [ 'message' =>'Wallet created successfuly' ] );
     }
 
 }

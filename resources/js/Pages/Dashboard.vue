@@ -46,7 +46,7 @@ defineProps<{
                                 :href="route('show-create-wallet-page')">Create Wallet</a>
 
                             <span>{{ pay_link }}</span>
-                        </div>
+                    </div>
 
                         <div class=" col-xl-12" style="  display: flex; gap: 10px;align-items: center;width: 100%;">
                             <div class="col-xl-4" v-for="wallet in wallets"

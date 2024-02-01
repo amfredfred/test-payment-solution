@@ -1,0 +1,26 @@
+POST http://127.0.0.1:8000/api/auth/register HTTP/1.1
+Accept: application/json
+Content-Type: application/json
+
+{
+    "name":"Manfred to",
+    "email":"ma@m.com",
+    "password":"password",
+    "password_confirmation":"password"
+}
+
+
+###
+POST http://127.0.0.1:8000/api/auth/login HTTP/1.1
+Accept: application/json
+Content-Type: application/json
+
+{
+    "email":"ma@m.com",
+    "password":"password"
+}
+
+###
+GET http://127.0.0.1:8000/api/dashboard HTTP/1.1
+Authorization: Bearer 19|enxoucKznG0hk5cYKz6U0nZJ6qqKcAychI7QhmIQ2fddd6e6
+Accept: application/json
